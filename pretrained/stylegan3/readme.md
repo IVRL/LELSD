@@ -1,0 +1,1 @@
+Download the pretrained model from [Official StyleGAN3 Repo](https://github.com/NVlabs/stylegan3)
