@@ -1,21 +1,16 @@
 import datetime
 import os
-from collections import defaultdict
-
-import matplotlib.pyplot as plt
-import numpy as np
 import streamlit as st
 import torch
-from PIL import ImageOps, Image, ImageFont, ImageDraw
 
 import sys
+
 sys.path.append("../")
 import models
 from lelsd import LELSD
 from utils.biggan_utils import BigGANSampleGenerator
 from utils.stylegan1_utils import StyleGAN1SampleGenerator
 from utils.stylegan2_utils import StyleGAN2SampleGenerator
-
 
 model2available_dataset = {
     "stylegan1": {
@@ -37,10 +32,12 @@ model2available_dataset = {
 @st.cache(ttl=None, allow_output_mutation=True, max_entries=2)
 def load_pretrained_model(model_name, dataset_name):
     if model_name != "biggan":
-        G = models.get_model(model_name, f"../pretrained/{model_name}/{model2available_dataset[model_name][dataset_name]}")
+        G = models.get_model(model_name,
+                             f"../pretrained/{model_name}/{model2available_dataset[model_name][dataset_name]}")
     else:
         G = models.get_model(model_name, model2available_dataset[model_name][dataset_name])
     return G
+
 
 @st.cache(ttl=None, allow_output_mutation=True, max_entries=2)
 def get_segmentation_model(model_name):
@@ -79,13 +76,12 @@ def get_batch_data_from_ws(sample_generator, ws, model_name, dataset_name):
     return batch_data
 
 
-
 exp_dir = "../out/"
 
 stylegan1_part2lelsd_model_paths = {
-    #     "FFHQ": "out/local_w_stylegan1_ffhq",
-    #     "WikiArt Faces": "out/local_w_stylegan1_wikiart_faces",
-    #     "LSUN Bedroom": "out/local_w_stylegan1_lsun_bedroom",
+    #     "FFHQ": "lelsd_stylegan1_ffhq",
+    #     "WikiArt Faces": "lelsd_stylegan1_wikiart_faces",
+    #     "LSUN Bedroom": "lelsd_stylegan1_lsun_bedroom",
 }
 
 stylegan2_part2lelsd_model_paths = {
@@ -151,7 +147,8 @@ elif base_lelsd.latent_space.startswith("S"):
             layers_to_apply = choices
     else:
         layers_to_apply = list(
-            map(int, st.sidebar.multiselect("Base LELSD Layers to apply the change", range(len(base_lelsd.latent_dirs)))))
+            map(int,
+                st.sidebar.multiselect("Base LELSD Layers to apply the change", range(len(base_lelsd.latent_dirs)))))
 else:
     layers_to_apply = None
 
@@ -167,8 +164,6 @@ elif model_name == 'stylegan2':
 else:
     pass
 
-
-
 random_seed = int(st.sidebar.text_input('Random seed for generating samples', value='982'))
 
 original_batch_data = get_batch_data(sample_generator, random_seed, model_name, dataset_name)
@@ -176,7 +171,6 @@ original_image = original_batch_data['image'][0]
 original_batch_data['edit_sequence'] = [original_image]
 original_batch_data['edit_index'] = 0
 original_batch_data['edit_details'] = [(0)]
-
 
 if not os.path.exists(f"../tmp/last_batch_data_{random_seed}.pth"):
     last_batch_data = original_batch_data
@@ -187,18 +181,15 @@ w_idx = 0
 alpha = st.sidebar.slider(f'Alpha', alpha_min_value, alpha_max_value, 0)
 tmp_batch_data = last_batch_data
 last_batch_data = base_lelsd.edit_batch_data(sample_generator, last_batch_data, 0, alpha,
-                                                       layers_to_apply)
+                                             layers_to_apply)
 last_batch_data['edit_index'] = tmp_batch_data['edit_index']
 last_batch_data['edit_sequence'] = tmp_batch_data['edit_sequence']
 last_batch_data['edit_details'] = tmp_batch_data['edit_details']
 last_batch_data['edit_index'] += 1
-        
+
 last_image = last_batch_data['image'][0]
 last_batch_data['edit_sequence'].append(last_image)
 last_batch_data['edit_details'].append([alpha, layers_to_apply, semantic_edit_part])
-
-
-
 
 img_size = (512, 512)
 
@@ -212,8 +203,6 @@ for i, image in enumerate(last_batch_data['edit_sequence']):
 
 if st.sidebar.button("Apply Changes"):
     torch.save(last_batch_data, f"../tmp/last_batch_data_{random_seed}.pth")
-    
 
 if st.sidebar.button("Reset"):
     torch.save(original_batch_data, f"../tmp/last_batch_data_{random_seed}.pth")
-    

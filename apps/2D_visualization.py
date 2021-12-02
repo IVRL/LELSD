@@ -1,14 +1,12 @@
 import datetime
 import os
-from collections import defaultdict
-
-import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
 import torch
 from PIL import ImageOps, Image, ImageFont, ImageDraw
 
 import sys
+
 sys.path.append("../")
 import models
 from lelsd import LELSD
@@ -36,10 +34,12 @@ model2available_dataset = {
 @st.cache(ttl=None, allow_output_mutation=True, max_entries=2)
 def load_pretrained_model(model_name, dataset_name):
     if model_name != "biggan":
-        G = models.get_model(model_name, f"../pretrained/{model_name}/{model2available_dataset[model_name][dataset_name]}")
+        G = models.get_model(model_name,
+                             f"../pretrained/{model_name}/{model2available_dataset[model_name][dataset_name]}")
     else:
         G = models.get_model(model_name, model2available_dataset[model_name][dataset_name])
     return G
+
 
 @st.cache(ttl=None, allow_output_mutation=True, max_entries=2)
 def get_segmentation_model(model_name):
@@ -69,9 +69,9 @@ def get_batch_data(sample_generator, seed, model_name, dataset_name):
 exp_dir = "../out/"
 
 stylegan1_part2lelsd_model_paths = {
-    #     "FFHQ": "out/local_w_stylegan1_ffhq",
-    #     "WikiArt Faces": "out/local_w_stylegan1_wikiart_faces",
-    #     "LSUN Bedroom": "out/local_w_stylegan1_lsun_bedroom",
+    #     "FFHQ": "lelsd_stylegan1_ffhq",
+    #     "WikiArt Faces": "lelsd_stylegan1_wikiart_faces",
+    #     "LSUN Bedroom": "lelsd_stylegan1_lsun_bedroom",
 }
 
 stylegan2_part2lelsd_model_paths = {
@@ -137,11 +137,10 @@ elif base_lelsd.latent_space.startswith("S"):
             layers_to_apply = choices
     else:
         layers_to_apply = list(
-            map(int, st.sidebar.multiselect("Base LELSD Layers to apply the change", range(len(base_lelsd.latent_dirs)))))
+            map(int,
+                st.sidebar.multiselect("Base LELSD Layers to apply the change", range(len(base_lelsd.latent_dirs)))))
 else:
     layers_to_apply = None
-
-
 
 G = load_pretrained_model(model_name, dataset_name)
 device = torch.device('cuda')
@@ -152,19 +151,15 @@ elif model_name == 'stylegan2':
 else:
     pass
 
-
 random_seed = int(st.sidebar.text_input('Random seed for generating the image', value='982'))
 original_batch_data = get_batch_data(sample_generator, random_seed, model_name, dataset_name)
 original_image = original_batch_data['image'][0]
 original_raw_image = original_batch_data['raw_image']
 
-
-
 k = 2 * int(st.sidebar.text_input('Number of Images', value='2')) + 1
 width = 196
 height = 196
 img_size = (width, height)
-
 
 editing_model = base_lelsd
 latent_dir1_idx = st.sidebar.selectbox(
@@ -179,28 +174,27 @@ latent_dir2_idx = st.sidebar.selectbox(
 )
 
 editing_image = np.zeros(shape=(width * k, height * k, 3), dtype=np.uint8)
-alpha1_min_value, alpha1_max_value = st.sidebar.slider(f'Alpha for latent dir1', min_value=min_value, max_value=max_value, value=value)
-alpha2_min_value, alpha2_max_value = st.sidebar.slider(f'Alpha for latent dir2', min_value=min_value, max_value=max_value, value=value)
-alpha1_mesh, alpha2_mesh = np.meshgrid(np.linspace(alpha1_min_value, alpha1_max_value, k), np.linspace(alpha2_min_value, alpha2_max_value, k))
+alpha1_min_value, alpha1_max_value = st.sidebar.slider(f'Alpha for latent dir1', min_value=min_value,
+                                                       max_value=max_value, value=value)
+alpha2_min_value, alpha2_max_value = st.sidebar.slider(f'Alpha for latent dir2', min_value=min_value,
+                                                       max_value=max_value, value=value)
+alpha1_mesh, alpha2_mesh = np.meshgrid(np.linspace(alpha1_min_value, alpha1_max_value, k),
+                                       np.linspace(alpha2_min_value, alpha2_max_value, k))
 big_image = np.zeros(shape=(width * k, height * k, 3), dtype=np.uint8)
-    
+
 for i in range(k):
     for j in range(k):
         alpha1 = alpha1_mesh[i, j]
         alpha2 = alpha2_mesh[i, j]
-        new_batch_data = editing_model.edit_batch_data(sample_generator, original_batch_data, latent_dir1_idx, alpha1, layers_to_apply)
-        new_batch_data = editing_model.edit_batch_data(sample_generator, new_batch_data, latent_dir2_idx, alpha2, layers_to_apply)
+        new_batch_data = editing_model.edit_batch_data(sample_generator, original_batch_data, latent_dir1_idx, alpha1,
+                                                       layers_to_apply)
+        new_batch_data = editing_model.edit_batch_data(sample_generator, new_batch_data, latent_dir2_idx, alpha2,
+                                                       layers_to_apply)
         image = new_batch_data['image'][0]
         if i == k // 2 and j == k // 2:
             image = ImageOps.expand(image, border=int(24 / (1024 // image.size[0])), fill='red')
-            
+
         image = image.resize(img_size)
         editing_image[i * width: (i + 1) * width, j * height: (j + 1) * height, :] = np.array(image)
 
 st.image(editing_image, caption='2D Visualization of LELSD', use_column_width=False)
-    
-    
-
-
-            
-        
