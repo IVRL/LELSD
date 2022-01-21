@@ -1,3 +1,9 @@
+""" LELSD PyTorch model.
+    From "Optimizing Latent Space Directions For GAN-based Local Image Editing"
+    By Ehsan Pajouheshgar, Tong Zhang, and Sabine Susstrunk
+    https://arxiv.org/abs/2111.12583
+"""
+
 import json
 import os
 from datetime import datetime
