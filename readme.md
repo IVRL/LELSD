@@ -143,3 +143,13 @@ https://github.com/huggingface/pytorch-pretrained-BigGAN
 ```
 https://github.com/IVRL/GANLocalEditing
 ```
+
+## Citation
+```
+@article{pajouheshgar2021optimizing,
+  title={Optimizing Latent Space Directions For GAN-based Local Image Editing},
+  author={Pajouheshgar, Ehsan and Zhang, Tong and S{\"u}sstrunk, Sabine},
+  journal={arXiv preprint arXiv:2111.12583},
+  year={2021}
+}
+```
