@@ -25,69 +25,6 @@ except:
 
 
 class CLIPLSD(LELSD):
-    stylegan2_y_dims = {
-        0: 512,  # 4 x 4
-        1: 512,  # 8 x 8
-        2: 512,  # 8 x 8
-        3: 512,  # 16 x 16
-        4: 512,  # 16 x 16
-        5: 512,  # 32 x 32
-        6: 512,  # 32 x 32
-        7: 512,  # 64 x 64
-        8: 512,  # 64 x 64
-        9: 512,  # 128 x 128
-        10: 256,  # 128 x 128
-        11: 256,  # 256 x 256
-        12: 128,  # 256 x 256
-        13: 128,  # 512 x 512
-        14: 64,  # 512 x 512
-        15: 64,  # 1024 x 1024
-        16: 32,  # 1024 x 1024
-        17: 32,  # Unused
-    }
-
-    stylegan2_rgb_y_dims = {
-        0: 512,  # 4 x 4
-        1: 512,  # 8 x 8
-        2: 512,  # 16 x 16
-        3: 512,  # 32 x 32
-        4: 512,  # 64 x 64
-        5: 256,  # 128 x 128
-        6: 128,  # 256 x 256
-        7: 64,  # 512 x 512
-        8: 32,  # 1024 x 1024
-    }
-
-    stylegan2_s_dims = {
-        0: 512,  # 4 x 4 s1
-        1: 512,  # 4 x 4 trgb
-        2: 512,  # 8 x 8 s1
-        3: 512,  # 8 x 8 s2
-        4: 512,  # 8 x 8 trgb
-        5: 512,  # 16 x 16 s1
-        6: 512,  # 16 x 16 s2
-        7: 512,  # 16 x 16 trgb
-        8: 512,  # 32 x 32 s1
-        9: 512,  # 32 x 32 s2
-        10: 512,  # 32 x 32 trgb
-        11: 512,  # 64 x 64 s1
-        12: 512,  # 64 x 64 s2
-        13: 512,  # 64 x 64 trgb
-        14: 512,  # 128 x 128 s1
-        15: 256,  # 128 x 128 s2
-        16: 256,  # 128 x 128 trgb
-        17: 256,  # 256 x 256 s1
-        18: 128,  # 256 x 256 s2
-        19: 128,  # 256 x 256 trgb
-        20: 128,  # 512 x 512 s1
-        21: 64,  # 512 x 512 s2
-        22: 64,  # 512 x 512 trgb
-        23: 64,  # 1024 x 1024 s1
-        24: 32,  # 1024 x 1024 s2
-        25: 32,  # 1024 x 1024 trgb
-        26: 32  # 1024 x 1024 unused
-    }
-
     """
     This class tries to find directions in the latent space of a pretrained GAN
     that if added to the initial latent vector, the change in the output image
@@ -107,10 +44,8 @@ class CLIPLSD(LELSD):
         be bilinearly [up-down]-sampled to have the same shape as layer feature maps.
         Note that the layer indices should be ascendingly sorted.
     semantic_parts: list, required
-        List of strings. This list will determine the semantic parts that determine the localized area
-        of the output image we want to modify and edit. For fitting the model a segmentation object is
-        required with an dict attribute named 'part_to_mask_idx' that will determine the mask idx corresponding
-        to each semantic part in this list.
+        List of strings. This list will determine the semantic parts of the output image we want to modify and edit. 
+        For fitting the model a clip model is required.
     """
 
     def __init__(self, device, localization_layers, semantic_parts, **kwargs):
@@ -119,6 +54,7 @@ class CLIPLSD(LELSD):
         delattr(self, 'mask_aggregation')
         delattr(self, 'semantic_parts')
         delattr(self, 'combine_mask')
+        # add needed attributes
 
     def fit(self, gan_sample_generator, clip_model, num_batches, num_lr_halvings=4, batch_size=None,
             pgbar=False, summary=True, snapshot_interval=200):
@@ -165,7 +101,6 @@ class CLIPLSD(LELSD):
         min_alpha_value = self.min_alpha_value
         max_alpha_value = self.max_alpha_value
         global_step = 0
-        # TODO ask about this pbar
         pbar = tqdm(range(54321, 54321 + num_batches, 1), disable=not pgbar, total=num_batches)
         pil_to_tensor = torchvision.transforms.ToTensor()
 
@@ -218,28 +153,13 @@ class CLIPLSD(LELSD):
             # TODO: here we have to use the CLIP model to get the semantics again
 
             # To maximize the Localization Score in localization layers
-            for layer, layer_weight in zip(reversed(self.localization_layers),
-                                           reversed(self.localization_layer_weights)):
-                layer_res = gan_sample_generator.layer_to_resolution[layer]
+            # TODO: Ask the TA about this. What does layer_res do?
+            # This part of the code goes through the layers and calculates the loss for each one.
 
-                if layer_weight == 0:
-                    continue
-
-                x1 = batch_data[f'layer_{layer}'].detach()
-                x2 = new_batch_data[f'layer_{layer}']
-                if self.loss_function == 'L1':
-                    diff = torch.mean(torch.abs(x1 - x2), dim=1)
-                elif self.loss_function == 'L2':
-                    diff = torch.mean(torch.square(x1 - x2), dim=1)
-                elif self.loss_function == 'cos':
-                    diff = 1 - torch.nn.functional.cosine_similarity(x1, x2, dim=1, eps=1e-8)
-                else:
-                    diff = torch.mean(torch.square(x1 - x2), dim=1)
-                
-                # TODO: here we should calculate the Loss from
-                clip_loss = 0
             
-            clip_loss = torch.mean(clip_loss)
+            # TODO: here we should calculate the Loss from both sematic scores and id loss etc
+            
+            clip_loss = 0
             if self.latent_space == "W+":
                 correlation_loss = 0
                 for layer in range(self.n_layers):
