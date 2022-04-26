@@ -130,6 +130,8 @@ class CLIPLSD:
         If not specified, the layers will have equal weights.
     gamma_correlation: float, default=1.0
         Coefficient of correlation loss
+    l2_lambda: float, default=0.0
+        Coefficient of L2 loss
     unit_norm: bool, default=True,
         Setting this to True will force the optimization to normalize the latent
         directions to unit norm after each step of gradient descent.
@@ -168,7 +170,7 @@ class CLIPLSD:
     def __init__(self, device, localization_layers, semantic_text, loss_function="MSE",
                  n_layers=18, num_latent_dirs=3, latent_dim=512,
                  batch_size=4,
-                 learning_rate=0.001, localization_layer_weights=None, gamma_correlation=1.0,
+                 learning_rate=0.001, localization_layer_weights=None, gamma_correlation=1.0, l2_lambda=0.0,
                  unit_norm=True, latent_space='W',
                  onehot_temperature=0.001,
                  min_alpha_value=-3.0, max_alpha_value=3.0, min_abs_alpha_value=0.5,
@@ -191,6 +193,7 @@ class CLIPLSD:
         self.localization_layer_weights /= self.localization_layer_weights.sum()
         self.localization_layer_weights = list(self.localization_layer_weights)
         self.gamma_correlation = gamma_correlation
+        self.l2_lambda = l2_lambda
 
         self.unit_norm = unit_norm
         self.latent_space = latent_space
@@ -457,7 +460,7 @@ class CLIPLSD:
                 else:
                     correlation_loss = self.correlation_loss(self.latent_dirs)
 
-            loss = clip_loss + l2_loss + self.gamma_correlation * correlation_loss
+            loss = clip_loss + self.l2_lambda * l2_loss + self.gamma_correlation * correlation_loss
             loss.backward()
             if self.unit_norm:
                 optimizer.step()
