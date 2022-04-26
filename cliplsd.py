@@ -10,6 +10,7 @@ import os
 from datetime import datetime
 
 import numpy as np
+import clip
 import torch
 import torchvision
 from torch.autograd import Variable
@@ -376,9 +377,12 @@ class CLIPLSD:
         global_step = 0
         pbar = tqdm(range(54321, 54321 + num_batches, 1), disable=not pgbar, total=num_batches)
         pil_to_tensor = torchvision.transforms.ToTensor()
-        text_token = clip_model.tokenize(self.semantic_text).to(self.device)
-        text_features = clip_model.encode(text_token).float().to(self.device)
+        text_token = clip.tokenize(self.semantic_text).to(self.device)
+        text_features = clip_model.encode_text(text_token).float().to(self.device)
         text_features /= text_features.norm(dim=-1, keepdim=True)
+
+        upsample = nn.Upsample(scale_factor=7)
+        average_pool = nn.AvgPool2d(kernel_size=1024 // 32)
 
 
         if self.latent_space.startswith("S"):
@@ -428,14 +432,12 @@ class CLIPLSD:
                                                                              return_image=True)
 
             # TODO: here we have to use the CLIP model to get the semantics again
-            images = [clip_preprocess(i) for i in batch_data["image"]]
-            image_input = torch.tensor(np.stack(images)).to(self.device)
+            image_input = average_pool(upsample(new_batch_data['raw_images'])).to(self.device)
             image_features = clip_model.encode_image(image_input).float().to(self.device)
             image_features /= image_features.norm(dim=-1, keepdim=True)
             similarity = torch.matmul(text_features, image_features.t())
             similarity = similarity.view(batch_size, -1)
-            clip_loss = 1 - similarity
-
+            clip_loss = (1 - similarity).mean()
             
             # TODO: here we should calculate the Loss from both sematic scores and id loss.
             l2_loss = nn.MSELoss(reduction='sum')(old_latent, new_latent)
