@@ -432,11 +432,11 @@ class CLIPLSD:
                                                                              return_image=True)
 
             # TODO: here we have to use the CLIP model to get the semantics again
-            image_input = average_pool(upsample(new_batch_data['raw_images'])).to(self.device)
+            image_input = average_pool(upsample(new_batch_data['raw_image'])).to(self.device)
             image_features = clip_model.encode_image(image_input).float().to(self.device)
-            image_features /= image_features.norm(dim=-1, keepdim=True)
+            image_features = image_features / image_features.norm(dim=-1, keepdim=True)
             similarity = torch.matmul(text_features, image_features.t())
-            similarity = similarity.view(batch_size, -1)
+            # similarity = similarity.view(batch_size, -1)
             clip_loss = (1 - similarity).mean()
             
             # TODO: here we should calculate the Loss from both sematic scores and id loss.
