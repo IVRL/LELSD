@@ -135,5 +135,5 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Documentation images
-doc/*.png
+# Documentation
+doc/*
