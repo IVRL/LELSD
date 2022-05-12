@@ -96,6 +96,8 @@ class CLIPLSD:
     For example you can use this model to find latent directions that only change
     the mouth, or the nose of the generated face.
     For fitting this model, a pretrained STYLEGAN2, and CLIP model are required.
+    To use the segmentation loss, a pretrained segmentation model is required.
+    To use the id loss, a pretrained face recognition model is required.
     Parameters
     ----------
     device: pytorch device
@@ -107,14 +109,18 @@ class CLIPLSD:
         the desired part. The mask determining the desired part will
         be bilinearly [up-down]-sampled to have the same shape as layer feature maps.
         Note that the layer indices should be ascendingly sorted.
-    semantic_parts: list, required
-        List of strings. This list will determine the semantic parts of the output image we want to modify and edit. 
-        For fitting the model a clip model is required.
+    semantic_text: list, required
+        List of strings. This list will determine the semantic parts that determine the localized area
+        of the output image we want to modify and edit. For fitting the model a segmentation object is
+        required with an dict attribute named 'part_to_mask_idx' that will determine the mask idx corresponding
+        to each semantic part in this list.
     loss_function: {'L1', 'L2', 'cos'}, default='L2'
         The loss function used to evaluate and optimize localization score     
     mode: string, default='foreground'
         Either 'foreground' or 'background'
         Wether to treat the semantic parts as foreground or background.
+    mask_aggregation: {'union', 'intersection', 'average'}, default='average'
+        The method to combine two masks
     n_layers: int, default=18
         Number of layers in the generator network.
     num_latent_directions: int, default=3
@@ -133,6 +139,15 @@ class CLIPLSD:
         Coefficient of correlation loss
     l2_lambda: float, default=0.0
         Coefficient of L2 loss
+    id_lambda: float, default=0.0
+        Coefficient of ID loss
+    segmentation_lambda: float, default=0.0
+        Coefficient of segmentation loss
+    semantic_parts: list, default=None
+        Required to use segmentation loss. List of strings. This list will determine the semantic parts that determine the localized area
+        of the output image we want to modify and edit. For fitting the model a segmentation object is
+        required with an dict attribute named 'part_to_mask_idx' that will determine the mask idx corresponding
+        to each semantic part in this list.
     unit_norm: bool, default=True,
         Setting this to True will force the optimization to normalize the latent
         directions to unit norm after each step of gradient descent.
@@ -171,11 +186,19 @@ class CLIPLSD:
     def __init__(self, device, localization_layers, semantic_text, loss_function="MSE",
                  n_layers=18, num_latent_dirs=3, latent_dim=512,
                  batch_size=4,
-                 learning_rate=0.001, localization_layer_weights=None, gamma_correlation=1.0, l2_lambda=0.0,
+                 learning_rate=0.001, localization_layer_weights=None, 
+                 gamma_correlation=1.0,
+                 l2_lambda=0.0,
+                 id_lambda=0.0,
+                 segmentation_lambda=0.0,
+                 semantic_parts=None,
                  unit_norm=True, latent_space='W',
                  onehot_temperature=0.001,
-                 min_alpha_value=-3.0, max_alpha_value=3.0, min_abs_alpha_value=0.5,
-                 log_dir='log', random_seed=1234):
+                 min_alpha_value=-3.0, 
+                 max_alpha_value=3.0, 
+                 min_abs_alpha_value=0.5,
+                 log_dir='log', 
+                 random_seed=1234):
         assert loss_function in ['L1', 'L2', 'cos']
         self.device = device
         self.localization_layers = localization_layers
@@ -193,8 +216,11 @@ class CLIPLSD:
 
         self.localization_layer_weights /= self.localization_layer_weights.sum()
         self.localization_layer_weights = list(self.localization_layer_weights)
+
         self.gamma_correlation = gamma_correlation
         self.l2_lambda = l2_lambda
+        self.id_lambda = id_lambda
+        self.segmentation_lambda = segmentation_lambda
 
         self.unit_norm = unit_norm
         self.latent_space = latent_space
@@ -245,7 +271,6 @@ class CLIPLSD:
         if not self.latent_space.startswith("S"):
             self.latent_dirs = Variable(self.latent_dirs, requires_grad=True)
         else:
-            #             pass
             self.latent_dirs = [Variable(w, requires_grad=True) for w in self.latent_dirs]
 
     def sample_alpha(self, min_value, max_value, min_abs_value=0.5):
@@ -330,7 +355,7 @@ class CLIPLSD:
         return torch.mean(torch.abs(non_diagonal_elements))
 
 
-    def fit(self, gan_sample_generator, clip_model, num_batches, num_lr_halvings=4, batch_size=None,
+    def fit(self, gan_sample_generator, clip_model, num_batches, segmentation_model=None, id_model=None, num_lr_halvings=4, batch_size=None,
             pgbar=False, summary=True, snapshot_interval=200, single_seed=None):
         """
         This method will optimize the latent directions using samples generated by gan_sample_generator
@@ -340,9 +365,15 @@ class CLIPLSD:
         gan_sample_generator: SampleGenerator,
             This is a wrapper class on top of the pretrained generator network.
         clip_model:
-            # TODO: add description
+            CLIP model to get the clip loss.
         num_batches: int
             Number of batches used for optimizing the latent directions
+        segmentation_model: SegmentationModel, default=None
+            This is a wrapper class on top of the pretrained segmentation network.
+            This class should have an attribute named 'part_to_mask_idx' that will
+            be used to translate each semantic part to the corresponding mask idx.
+        id_model: TODO, default=None
+            Face recognition model.
         num_lr_halvings: int, default=4
             Number of times that the learning rate will be halved.
         batch_size: int, default=None
@@ -357,6 +388,13 @@ class CLIPLSD:
         """
         if batch_size is None:
             batch_size = self.batch_size
+        if self.id_lambda > 0:
+            assert id_model is not None, "id model missing"
+        if self.segmentation_lambda > 0:
+            assert segmentation_model is not None, "segmentation model missing"
+            part_ids = [segmentation_model.part_to_mask_idx[part_name] for part_name in self.semantic_parts]
+
+
         if summary:
             with open(os.path.join(self.log_dir, "config.json"), "w") as f:
                 config_dict = self.__dict__.copy()
@@ -400,6 +438,17 @@ class CLIPLSD:
             else:
                 batch_data = gan_sample_generator.generate_batch(batch_size=batch_size, seed=seed, requires_grad=True,
                                                                  return_all_layers=True, return_image=True)
+            if self.segmentation_lambda > 0:
+                if isinstance(segmentation_model, GANLinearSegmentation):
+                    old_segmentation_output = segmentation_model.predict(batch_data, one_hot=False)
+                else:
+                    old_segmentation_output = segmentation_model.predict(batch_data['image'], one_hot=False)
+                segmentation_output_res = old_segmentation_output.shape[2]
+
+                old_mask = 0.0
+                for part_idx in part_ids:
+                    old_mask += 1.0 * (old_segmentation_output == part_idx)
+                segmentation_model.zero_grad()
             
             gan_sample_generator.zero_grad()
             clip_model.zero_grad()
@@ -445,11 +494,68 @@ class CLIPLSD:
             # L2 loss is calculated here
             l2_loss = 0
             if self.l2_lambda > 0:
-                l2_loss = self.l2_lambda * clip_model.l2_loss()
+                l2_loss = nn.MSELoss(reduction='sum')(old_latent, new_latent)
 
-            # Correlation loss i calculated here
+            # Id loss is calculated here
+            id_loss = 0
+            if self.id_lambda > 0:
+                id_loss = 0
+
+            # Localization loss is calculated here
+            localization_loss = 0
+            if self.segmentation_lambda > 0:
+                if isinstance(segmentation_model, GANLinearSegmentation):
+                    new_segmentation_output = segmentation_model.predict(new_batch_data, one_hot=False)
+                else:
+                    new_segmentation_output = segmentation_model.predict(new_batch_data['image'], one_hot=False)
+                new_mask = 0.0
+                for part_idx in part_ids:
+                    new_mask += 1.0 * (new_segmentation_output == part_idx)
+
+                combined_mask = self.combine_mask(old_mask, new_mask, self.mask_aggregation)
+                combined_mask = combined_mask.detach()
+                # Cloning to avoid redundant computation
+                mask = combined_mask.clone()
+
+                last_layer_res = None
+                localization_loss = 0
+                # To maximize the Localization Score in localization layers
+                for layer, layer_weight in zip(reversed(self.localization_layers),
+                                            reversed(self.localization_layer_weights)):
+                    layer_res = gan_sample_generator.layer_to_resolution[layer]
+                    if last_layer_res != layer_res:
+                        if layer_res != segmentation_output_res:
+                            mask = torch.nn.functional.interpolate(mask, size=(layer_res, layer_res),
+                                                                mode='bilinear',
+                                                                align_corners=True)
+                        else:
+                            mask = combined_mask.clone()
+                    last_layer_res = layer_res
+                    if layer_weight == 0:
+                        continue
+
+                    x1 = batch_data[f'layer_{layer}'].detach()
+                    x2 = new_batch_data[f'layer_{layer}']
+                    if self.loss_function == 'L1':
+                        diff = torch.mean(torch.abs(x1 - x2), dim=1)
+                    elif self.loss_function == 'L2':
+                        diff = torch.mean(torch.square(x1 - x2), dim=1)
+                    elif self.loss_function == 'cos':
+                        diff = 1 - torch.nn.functional.cosine_similarity(x1, x2, dim=1, eps=1e-8)
+                    else:
+                        diff = torch.mean(torch.square(x1 - x2), dim=1)
+                    indicator = mask[:, 0]
+                    if self.mode == 'background':
+                        indicator = 1 - indicator
+
+                    localization_loss -= layer_weight * torch.sum(diff * indicator, dim=[1, 2]) / (
+                            torch.sum(diff, dim=[1, 2]) + 1e-6)
+                localization_loss = torch.mean(localization_loss)
+
+
+            # Correlation loss is calculated here, only calculated if there are more than one direction
             correlation_loss = 0
-            if self.gamma_correlation > 0:
+            if self.gamma_correlation > 0 and self.num_latent_dirs > 1:
                 if self.latent_space == "W+":
                     correlation_loss = 0
                     for layer in range(self.n_layers):
@@ -468,7 +574,11 @@ class CLIPLSD:
                 else:
                     correlation_loss = self.correlation_loss(self.latent_dirs)
 
-            loss = clip_loss + self.l2_lambda * l2_loss + self.gamma_correlation * correlation_loss
+            loss = clip_loss + \
+                   self.l2_lambda * l2_loss + \
+                   self.id_lambda * id_loss + \
+                   self.segmentation_lambda * localization_loss + \
+                   self.gamma_correlation * correlation_loss
 
             # We have to use retain_grad=True here to avoid error
             loss.backward(retain_graph=True)
