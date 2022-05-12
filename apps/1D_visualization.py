@@ -146,9 +146,9 @@ original_image = original_batch_data['image'][0]
 original_raw_image = original_batch_data['raw_image']
 
 k = 2 * int(st.sidebar.text_input('Number of Images', value='2')) + 1
-width = 196
 height = 196
-img_size = (width, height)
+width = 196
+img_size = (height, width)
 
 editing_model = base_cliplsd
 latent_dir1_idx = st.sidebar.selectbox(
@@ -162,11 +162,11 @@ latent_dir2_idx = st.sidebar.selectbox(
     remaining_w_ids
 )
 
-editing_image = np.zeros(shape=(width * k, height, 3), dtype=np.uint8)
+editing_image = np.zeros(shape=(height, width * k , 3), dtype=np.uint8)
 alpha_min_value, alpha_max_value = st.sidebar.slider(f'Alpha', min_value=min_value,
                                                        max_value=max_value, value=value)
 alpha_mesh = np.linspace(alpha_min_value, alpha_max_value, k)
-big_image = np.zeros(shape=(width * k, height, 3), dtype=np.uint8)
+big_image = np.zeros(shape=(height, width * k, 3), dtype=np.uint8)
 
 for i, alpha in enumerate(alpha_mesh):
     new_batch_data = editing_model.edit_batch_data(sample_generator, original_batch_data, latent_dir1_idx, alpha,
@@ -176,6 +176,6 @@ for i, alpha in enumerate(alpha_mesh):
         image = ImageOps.expand(image, border=int(24 / (1024 // image.size[0])), fill='red')
 
     image = image.resize(img_size)
-    editing_image[i * width: (i + 1) * width, 0:height, :] = np.array(image)
+    editing_image[0:height, i * width: (i + 1) * width, :] = np.array(image)
 
 st.image(editing_image, caption='1D Visualization of CLIPLSD', use_column_width=False)
