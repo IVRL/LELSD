@@ -20,6 +20,7 @@ def _load_stylegan3_model(model_path):
     G = G.eval()
     return G
 
+
 def _load_stylegan2_model(model_path):
     from models.stylegan3 import dnnlib
     from models.stylegan3 import legacy
@@ -122,6 +123,42 @@ def _load_gan_linear_segmentation(model_path):
     return model
 
 
+def _load_arcface_model(model_name, model_path, **kwargs):
+    def get_model_backbone():
+        from models.arcface.iresnet import iresnet18, iresnet34, iresnet50, iresnet100, iresnet200
+        from models.arcface.iresnet2060 import iresnet2060
+        from models.arcface.mobilefacenet import get_mbf
+
+        # resnet
+        if model_name == "r18":
+            return iresnet18(False, **kwargs)
+        elif model_name == "r34":
+            return iresnet34(False, **kwargs)
+        elif model_name == "r50":
+            return iresnet50(False, **kwargs)
+        elif model_name == "r100":
+            return iresnet100(False, **kwargs)
+        elif model_name == "r200":
+            return iresnet200(False, **kwargs)
+        elif model_name == "r2060":
+            return iresnet2060(False, **kwargs)
+        elif model_name == "mbf":
+            fp16 = kwargs.get("fp16", False)
+            num_features = kwargs.get("num_features", 512)
+            return get_mbf(fp16=fp16, num_features=num_features)
+        else:
+            raise ValueError()
+
+    model = get_model_backbone()
+    state_dict = torch.load(model_path)
+    model.load_state_dict(state_dict)
+    model = model.eval()
+    return model
+
+
+
+
+
 _model_factories = {
     'stylegan1': _load_stylegan1_model,
     'stylegan2': _load_stylegan2_model,
@@ -131,6 +168,7 @@ _model_factories = {
     "biggan": _load_biggan_model,
     "gan_linear_seg": _load_gan_linear_segmentation,
     "mit_semseg_ade20k": _load_mit_semseg_ADE20K,
+    "arcface": _load_arcface_model,
 }
 
 
