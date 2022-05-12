@@ -19,8 +19,8 @@ ftfy
 regex
 nltk
 lpips
+streamlit
 
 # cudatoolkit==11.1
-# streamlit
 # python_version>=3.8.0
 # pytorch-pretrained-biggan
