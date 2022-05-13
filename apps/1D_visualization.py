@@ -101,7 +101,7 @@ semantic_text_path = st.sidebar.selectbox("Semantic Text", os.listdir(last_path)
 last_path = os.path.join(last_path, semantic_text_path)
 avaliable_dates = os.listdir(last_path)
 dates_path = st.sidebar.selectbox("Date", sorted(avaliable_dates, key=lambda x: datetime.datetime.strptime(x, '%b%d_%H-%M-%S')))
-base_cliplsd_path = os.path.join(last_path, "/model.pth")
+base_cliplsd_path = os.path.join(last_path, dates_path, "model.pth")
 base_cliplsd = CLIPLSD.load(base_cliplsd_path)
 
 alpha_range_type = st.sidebar.selectbox(
@@ -179,13 +179,16 @@ for i, alpha in enumerate(alpha_mesh):
     editing_image[0:height, i * width: (i + 1) * width, :] = np.array(image)
 
 st.image(editing_image, caption='1D Visualization of CLIPLSD', use_column_width=False)
-text = "Hyperparameters:\n"
-text += f"Learning Rate: {base_cliplsd.learning_rate}\n"
-text += f"Batch Size: {base_cliplsd.batch_size}\n"
-text += f"Min alpha value: {base_cliplsd.min_alpha_value}\n"
-text += f"Max alpha value: {base_cliplsd.max_alpha_value}\n"
-text += f"Min alpha abs value: {base_cliplsd.min_alpha_abs_value}\n"
-text += f"L2 lambda: {base_cliplsd.l2_lambda}\n"
-text += f"ID lambda: {base_cliplsd.id_lambda}\n"
-text += f"Localization lambda: {base_cliplsd.localization_lambda}\n"
-st.markdown(body=text)
+text =  ["Hyperparameters:"]
+text.append(f"Learning Rate: {editing_model.lr}")
+text.append(f"Batch Size: {base_cliplsd.batch_size}")
+text.append(f"Min alpha value: {base_cliplsd.min_alpha_value}")
+text.append(f"Max alpha value: {base_cliplsd.max_alpha_value}")
+text.append(f"Min alpha abs value: {base_cliplsd.min_abs_alpha_value}")
+text.append(f"L2 lambda: {base_cliplsd.l2_lambda}")
+text.append(f"ID lambda: {base_cliplsd.id_lambda}")
+try:
+    text.append(f"Localization lambda: {base_cliplsd.localization_lambda}")
+except:
+    pass
+st.markdown(body="<br>".join(text))
