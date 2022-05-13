@@ -422,6 +422,9 @@ class CLIPLSD:
         upsample = nn.Upsample(scale_factor=7)
         average_pool = nn.AvgPool2d(kernel_size=1024 // 32)
 
+        if self.id_lambda > 0:
+            id_resize = torchvision.transforms.Resize(size=[112])
+
 
         if self.latent_space.startswith("S"):
             optimizer = torch.optim.Adam(self.latent_dirs, lr=lr)
@@ -499,7 +502,17 @@ class CLIPLSD:
             # Id loss is calculated here
             id_loss = 0
             if self.id_lambda > 0:
-                id_loss = 0
+                # Batch Resize 
+                t1 = id_resize(batch_data["raw_image"], size=[112])
+                t2 = id_resize(new_batch_data["raw_image"], size=[112])
+
+                y_feats = id_model.forward(t1)
+                y_hat_feats = id_model.forward(t2)
+
+                y_feats = y_feats / y_feats.norm(dim=-1, keepdim=True)
+                y_hat_feats = y_hat_feats / y_hat_feats.norm(dim=-1, keepdim=True)
+
+                id_loss = (1 - y_feats.dot(y_hat_feats)).mean()
 
             # Localization loss is calculated here
             localization_loss = 0
