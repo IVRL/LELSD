@@ -517,7 +517,7 @@ class CLIPLSD:
                 y_feats = y_feats / y_feats.norm(dim=-1, keepdim=True)
                 y_hat_feats = y_hat_feats / y_hat_feats.norm(dim=-1, keepdim=True)
 
-                id_loss = torch.sum(y_feats * y_hat_feats, dim=-1).mean()
+                id_loss = (1 - torch.sum(y_feats * y_hat_feats, dim=-1)).mean()
 
             # Localization loss is calculated here
             localization_loss = 0
