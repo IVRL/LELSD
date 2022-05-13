@@ -191,4 +191,4 @@ try:
     text.append(f"Localization lambda: {base_cliplsd.localization_lambda}")
 except:
     pass
-st.markdown(body="<br>".join(text))
+st.text("\n".join(text))
