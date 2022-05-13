@@ -503,8 +503,8 @@ class CLIPLSD:
             id_loss = 0
             if self.id_lambda > 0:
                 # Batch Resize 
-                t1 = id_resize(batch_data["raw_image"], size=[112])
-                t2 = id_resize(new_batch_data["raw_image"], size=[112])
+                t1 = id_resize(batch_data["raw_image"])
+                t2 = id_resize(new_batch_data["raw_image"])
 
                 y_feats = id_model.forward(t1)
                 y_hat_feats = id_model.forward(t2)
@@ -512,7 +512,7 @@ class CLIPLSD:
                 y_feats = y_feats / y_feats.norm(dim=-1, keepdim=True)
                 y_hat_feats = y_hat_feats / y_hat_feats.norm(dim=-1, keepdim=True)
 
-                id_loss = (1 - y_feats.dot(y_hat_feats)).mean()
+                id_loss = torch.sum(y_feats * y_hat_feats, dim=-1).mean()
 
             # Localization loss is calculated here
             localization_loss = 0
