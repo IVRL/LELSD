@@ -702,9 +702,13 @@ class CLIPLSD:
         return similarity.view(2, -1)
 
     
-    def score_seeds(self, gan_sample_generator, clip_model, seeds, alpha):
-        batch_data = gan_sample_generator.generate_batch_from_seeds(seeds=seeds, requires_grad=False, return_image=True)
-        return self.score(gan_sample_generator, clip_model, batch_data, alpha)
+    def score_seeds(self, gan_sample_generator, clip_model, seeds, alpha, batch_size=4):
+        tensors = []
+        l = len(seeds)
+        for ndx in range(0, l, batch_size):
+            batch_seeds = seeds[ndx:min(ndx + batch_size, l)] 
+            tensors.append(self.score_seeds(gan_sample_generator, clip_model, batch_seeds, alpha))
+        return torch.cat(tensors, dim=1)
 
 
     def randomize_latent_dirs(self):
