@@ -620,9 +620,17 @@ class CLIPLSD:
                     torchvision.utils.save_image(image_grid,
                                                  os.path.join(self.log_dir, f"batch={i}-image_alpha={alpha:.2f}.jpg"))
 
-                summary_writer.add_scalar("clip loss score", -clip_loss, global_step)
-                summary_writer.add_scalar("correlation_loss", correlation_loss, global_step)
                 summary_writer.add_scalar("loss", loss, global_step)
+                summary_writer.add_scalar("Clip loss", clip_loss, global_step)
+                if self.l2_lambda > 0:
+                    summary_writer.add_scalar("L2 loss", l2_loss, global_step)
+                if self.id_lambda > 0:
+                    summary_writer.add_scalar("ID loss", id_loss, global_step)
+                if self.localization_lambda > 0:
+                    summary_writer.add_scalar("Localization loss", localization_loss, global_step)
+                if self.gamma_correlation > 0:
+                    summary_writer.add_scalar("Correlation_loss", correlation_loss, global_step)
+                
                 summary_writer.add_scalar("alpha", alpha, global_step)
                 summary_writer.add_scalar("lr", lr, global_step)
                 global_step += 1
@@ -670,6 +678,35 @@ class CLIPLSD:
     def load(model_path):
         return torch.load(model_path)
 
+
+    def score(self, gan_sample_generator, clip_model, batch_data, alpha):
+        
+        text_token = clip.tokenize(self.semantic_text).to(self.device)
+        text_features = clip_model.encode_text(text_token).float().to(self.device)
+        text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+        text_features.detach()
+        
+        upsample = torch.nn.Upsample(scale_factor=7)
+        average_pool = torch.nn.AvgPool2d(kernel_size=1024 // 32)
+
+        new_batch = self.edit_batch_data(gan_sample_generator, batch_data, 0, alpha=alpha)
+
+        concat_images = torch.cat([batch_data['raw_image'], new_batch['raw_image']])
+
+        with torch.no_grad():
+            image_input = average_pool(upsample(concat_images)).to(self.device)
+            image_features = clip_model.encode_image(image_input).float()
+            image_features_norm = image_features / image_features.norm(dim=-1, keepdim=True) # we did not normalize for first trained directions
+            similarity = torch.matmul(text_features, image_features_norm.t())
+            
+        return similarity.view(2, -1)
+
+    
+    def score_seeds(self, gan_sample_generator, clip_model, seeds, alpha):
+        batch_data = gan_sample_generator.generate_batch_from_seeds(seeds=seeds, requires_grad=False, return_image=True)
+        return self.score(gan_sample_generator, clip_model, batch_data, alpha)
+
+
     def randomize_latent_dirs(self):
         if self.latent_space == 'Z':
             self.latent_dirs = torch.randn(self.num_latent_dirs, self.latent_dim, device=self.device)
@@ -698,7 +735,6 @@ class CLIPLSD:
         if not self.latent_space.startswith("S"):
             self.latent_dirs = Variable(self.latent_dirs, requires_grad=True)
         else:
-            #             pass
             self.latent_dirs = [Variable(w, requires_grad=True) for w in self.latent_dirs]
 
         return self
