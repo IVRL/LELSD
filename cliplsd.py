@@ -107,11 +107,6 @@ class CLIPLSD:
         of the output image we want to modify and edit. For fitting the model a segmentation object is
         required with an dict attribute named 'part_to_mask_idx' that will determine the mask idx corresponding
         to each semantic part in this list.
-    mode: string, default='foreground'
-        Either 'foreground' or 'background'
-        Wether to treat the semantic parts as foreground or background.
-    mask_aggregation: {'union', 'intersection', 'average'}, default='average'
-        The method to combine two masks
     n_layers: int, default=18
         Number of layers in the generator network.
     num_latent_directions: int, default=3
@@ -149,6 +144,11 @@ class CLIPLSD:
         of the output image we want to modify and edit. For fitting the model a segmentation object is
         required with an dict attribute named 'part_to_mask_idx' that will determine the mask idx corresponding
         to each semantic part in this list.
+    mask_aggregation: {'union', 'intersection', 'average'}, default='average'
+        The method to combine two localization masks
+    mode: string, default='foreground'
+        Either 'foreground' or 'background'
+        Wether to treat the semantic parts as foreground or background.
     unit_norm: bool, default=True,
         Setting this to True will force the optimization to normalize the latent
         directions to unit norm after each step of gradient descent.
@@ -196,6 +196,8 @@ class CLIPLSD:
                  localization_layers=None, 
                  localization_layer_weights=None,
                  semantic_parts=None,
+                 mask_aggregation='average',
+                 mode='foreground', 
                  unit_norm=True, latent_space='W',
                  onehot_temperature=0.001,
                  min_alpha_value=-3.0, 
@@ -229,6 +231,9 @@ class CLIPLSD:
 
             assert semantic_parts is not None, "semantic paths missing"
             self.semantic_parts = semantic_parts
+            assert mask_aggregation in ['average', 'union', 'intersection']
+            self.mask_aggregation = mask_aggregation
+            self.mode = mode
 
         self.unit_norm = unit_norm
         self.latent_space = latent_space
