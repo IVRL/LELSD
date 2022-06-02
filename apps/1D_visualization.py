@@ -91,17 +91,30 @@ dataset_name = st.sidebar.selectbox(
 truncation_psi = st.sidebar.slider(f'Truncation Psi', 0.01, 1.0, 0.7)  # min, max, default
 
 model_path = os.path.join(exp_dir, model2dataset2part2cliplsd[model_name][dataset_name])
+
 latent_space = st.sidebar.selectbox("Base Model Latent Space", os.listdir(model_path))
 last_path = os.path.join(model_path, latent_space)
+
 dim = st.sidebar.selectbox("Dimension", os.listdir(last_path))
 last_path = os.path.join(last_path, dim)
+
 clip_type = st.sidebar.selectbox("Clip Model Type", os.listdir(last_path))
 last_path = os.path.join(last_path, clip_type)
+
 semantic_text_path = st.sidebar.selectbox("Semantic Text", os.listdir(last_path))
 last_path = os.path.join(last_path, semantic_text_path)
+
+num_seeds = st.sidebar.slider("Number of Seeds", os.listdir(last_path))
+last_path = os.path.join(last_path, num_seeds)
+
+if 'single' in num_seeds:
+    train_seed = st.sidebar.slider("Training seed", os.listdir(last_path))
+    last_path = os.path.join(last_path, train_seed)
+
 avaliable_dates = os.listdir(last_path)
 dates_path = st.sidebar.selectbox("Date", sorted(avaliable_dates, key=lambda x: datetime.datetime.strptime(x, '%b%d_%H-%M-%S')))
 base_cliplsd_path = os.path.join(last_path, dates_path, "model.pth")
+
 base_cliplsd = CLIPLSD.load(base_cliplsd_path)
 
 alpha_range_type = st.sidebar.selectbox(
