@@ -104,11 +104,11 @@ last_path = os.path.join(last_path, clip_type)
 semantic_text_path = st.sidebar.selectbox("Semantic Text", os.listdir(last_path))
 last_path = os.path.join(last_path, semantic_text_path)
 
-num_seeds = st.sidebar.slider("Number of Seeds", os.listdir(last_path))
+num_seeds = st.sidebar.selectbox("Number of Seeds", os.listdir(last_path))
 last_path = os.path.join(last_path, num_seeds)
 
-if 'single' in num_seeds:
-    train_seed = st.sidebar.slider("Training seed", os.listdir(last_path))
+if 'single' in last_path:
+    train_seed = st.sidebar.selectbox("Training seed", os.listdir(last_path))
     last_path = os.path.join(last_path, train_seed)
 
 avaliable_dates = os.listdir(last_path)
@@ -167,12 +167,6 @@ editing_model = base_cliplsd
 latent_dir1_idx = st.sidebar.selectbox(
     "Choose the index of the first latent direction.",
     list(range(editing_model.num_latent_dirs))
-)
-remaining_w_ids = list(range(editing_model.num_latent_dirs))
-remaining_w_ids.remove(latent_dir1_idx)
-latent_dir2_idx = st.sidebar.selectbox(
-    "Choose the index of the second latent direction.",
-    remaining_w_ids
 )
 
 editing_image = np.zeros(shape=(height, width * k , 3), dtype=np.uint8)
