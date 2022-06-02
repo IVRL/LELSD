@@ -367,8 +367,8 @@ class CLIPLSD:
         non_diagonal_elements = correlation_matrix - torch.eye(len(ws), device=ws.device)
         return torch.mean(torch.abs(non_diagonal_elements))
 
-    @staticmethod
-    def combine_mask(mask1, mask2, method='average'):
+    def combine_mask(self, mask1, mask2):
+        method = self.mask_aggregation
         assert method in ['average', 'union', 'intersection']
         if method == 'average':
             return 0.5 * mask1 + 0.5 * mask2
@@ -550,7 +550,7 @@ class CLIPLSD:
                 for part_idx in part_ids:
                     new_mask += 1.0 * (new_segmentation_output == part_idx)
 
-                combined_mask = self.combine_mask(old_mask, new_mask, self.mask_aggregation)
+                combined_mask = self.combine_mask(old_mask, new_mask)
                 combined_mask = combined_mask.detach()
                 # Cloning to avoid redundant computation
                 mask = combined_mask.clone()
