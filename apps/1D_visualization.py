@@ -108,7 +108,7 @@ num_seeds = st.sidebar.selectbox("Number of Seeds", os.listdir(last_path))
 last_path = os.path.join(last_path, num_seeds)
 
 if 'single' in last_path:
-    train_seed = st.sidebar.selectbox("Training seed", os.listdir(last_path))
+    train_seed = st.sidebar.selectbox("Training seed", sorted(os.listdir(last_path), key=int))
     last_path = os.path.join(last_path, train_seed)
 
 avaliable_dates = os.listdir(last_path)
