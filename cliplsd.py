@@ -362,6 +362,15 @@ class CLIPLSD:
         non_diagonal_elements = correlation_matrix - torch.eye(len(ws), device=ws.device)
         return torch.mean(torch.abs(non_diagonal_elements))
 
+    @staticmethod
+    def combine_mask(mask1, mask2, method='average'):
+        assert method in ['average', 'union', 'intersection']
+        if method == 'average':
+            return 0.5 * mask1 + 0.5 * mask2
+        elif method == 'intersection':
+            return mask1 * mask2
+        else:
+            return mask1 + mask2 - mask1 * mask2
 
     def fit(self, gan_sample_generator, clip_model, num_batches, segmentation_model=None, id_model=None, num_lr_halvings=4, batch_size=None,
             pgbar=False, summary=True, snapshot_interval=200, single_seed=None):
@@ -400,6 +409,7 @@ class CLIPLSD:
             assert id_model is not None, "id model missing"
         if self.localization_lambda > 0:
             assert segmentation_model is not None, "segmentation model missing"
+            assert hasattr(segmentation_model, 'part_to_mask_idx'), "segmentation model missing part_to_mask_idx"
             part_ids = [segmentation_model.part_to_mask_idx[part_name] for part_name in self.semantic_parts]
 
 
@@ -423,9 +433,11 @@ class CLIPLSD:
         global_step = 0
         pbar = tqdm(range(54321, 54321 + num_batches, 1), disable=not pgbar, total=num_batches)
         pil_to_tensor = torchvision.transforms.ToTensor()
-        text_token = clip.tokenize(self.semantic_text).to(self.device)
-        text_features = clip_model.encode_text(text_token).float().to(self.device)
-        text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+
+        with torch.no_grad():
+            text_token = clip.tokenize(self.semantic_text).to(self.device)
+            text_features = clip_model.encode_text(text_token).float().to(self.device)
+            text_features = text_features / text_features.norm(dim=-1, keepdim=True)
         
         upsample = nn.Upsample(scale_factor=7)
         average_pool = nn.AvgPool2d(kernel_size=1024 // 32)
@@ -502,7 +514,7 @@ class CLIPLSD:
             similarity = similarity.view(batch_size, -1)
             clip_loss = (1 - similarity).mean()
             
-            # L2 loss is calculated here
+            # L2 loss is calculated here (not useful as it depends on the sampled alpha)
             l2_loss = 0
             if self.l2_lambda > 0:
                 l2_loss = nn.MSELoss(reduction='sum')(old_latent, new_latent)
