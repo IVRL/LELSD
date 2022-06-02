@@ -227,6 +227,9 @@ class CLIPLSD:
             self.localization_layer_weights /= self.localization_layer_weights.sum()
             self.localization_layer_weights = list(self.localization_layer_weights)
 
+            assert semantic_parts is not None, "semantic paths missing"
+            self.semantic_parts = semantic_parts
+
         self.unit_norm = unit_norm
         self.latent_space = latent_space
 
