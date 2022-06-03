@@ -1,8 +1,10 @@
-# CLIPLSD: Project for EPFL Course Computational Photography: CS 413
+# CLIPLSD: Project for EPFL Course Computational Photography: CS-413
+
+Repository for CLIP-supervised GAN-based Image Editing.
 
 ### Streamlit apps
 
-A streamlit app is provided to view the trained directions depending on the chosen
+A streamlit app is provided to view the trained directions depending on the chosen parameters.
 
 ```
 streamlit run 1D_visualization.py
