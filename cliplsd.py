@@ -126,7 +126,7 @@ class CLIPLSD:
         Coefficient of ID loss
     localization_lambda: float, default=0.0
         Coefficient of localization loss
-    loss_function: {'L1', 'L2', 'cos'}, default='L2'
+    localization_loss_function: {'L1', 'L2', 'cos'}, default='L2'
         The loss function used to evaluate and optimize localization score
     localization_layers: list, default=None
         Required to use localization loss. 
@@ -192,7 +192,7 @@ class CLIPLSD:
                  id_lambda=0.0,
                  localization_lambda=0.0,
                  gamma_correlation=0.0,
-                 localization_loss_function="MSE",
+                 localization_loss_function="L2",
                  localization_layers=None, 
                  localization_layer_weights=None,
                  semantic_parts=None,
