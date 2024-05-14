@@ -146,10 +146,12 @@ https://github.com/IVRL/GANLocalEditing
 
 ## Citation
 ```
-@article{pajouheshgar2021optimizing,
-  title={Optimizing Latent Space Directions For GAN-based Local Image Editing},
+@inproceedings{pajouheshgar2022optimizing,
+  title={Optimizing latent space directions for gan-based local image editing},
   author={Pajouheshgar, Ehsan and Zhang, Tong and S{\"u}sstrunk, Sabine},
-  journal={arXiv preprint arXiv:2111.12583},
-  year={2021}
+  booktitle={ICASSP 2022-2022 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
+  pages={1740--1744},
+  year={2022},
+  organization={IEEE}
 }
 ```
